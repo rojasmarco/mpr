@@ -1,0 +1,132 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Tue Aug 13 10:07:56 2019
+
+@author: Marco
+"""
+
+
+from tika import parser
+import os
+import nltk
+import tika
+import matplotlib.pyplot as plt
+import re
+import codecs
+import PyPDF2
+
+import pandas as pd
+
+
+# Stopwords that will be eliminated
+from nltk.corpus import stopwords
+stopwds = stopwords.words('english')
+
+# Punctuation marks
+punct = ['.', ',', '(', ')', '/', '?', ';', ':', '[', ']', '{', '}', '¿', '*', \
+         '--', '_', '%', '&', '$']
+
+# Function to open pdf and make it a text without Stopwords and Punctuation marks
+def pdf_tokens(file, lan = 'english'):
+    '''
+    Input: PDF file, language of stopwords
+    Output: list with all words apart from stopwords and punctuation marks
+    '''
+    #
+    stopwds = stopwords.words(lan)
+    # PDF to dictionary
+    rawText = parser.from_file(file)
+    # Dictionary to string
+    rawText = rawText['content']
+    # Tokenizing
+    tokens = nltk.word_tokenize(rawText)  
+    # Cleaning Stopwords and Punctuation marks
+    tokens = [w for w in tokens if not w in stopwds]
+    tokens = [w for w in tokens if not w in punct]
+    tokens = [w.lower() for w in tokens]
+    return tokens
+
+# Function to open pdf and make it a text without Stopwords and Punctuation marks
+def pdf_tokens2(file, pageIni=1, lan = 'english'):
+    '''
+    Input: PDF file, language of stopwords
+    Output: list with all words apart from stopwords and punctuation marks
+    '''
+    #
+    stopwds = stopwords.words(lan)
+    pageIni = pageIni-1
+    # PDF
+    pdfFileObj = codecs.open(file, 'rb') 
+    #
+    pdfReader = PyPDF2.PdfFileReader(pdfFileObj)
+    pageFin = pdfReader.getNumPages()-1
+    #
+    tokens = []
+    for i in range(pageIni, pageFin):
+        tempPage = pdfReader.getPage(i)
+        tempPage = nltk.word_tokenize(tempPage.extractText())
+        tokens.extend(tempPage)
+    # Cleaning Stopwords and Punctuation marks
+    tokens = [w for w in tokens if not w in stopwds]
+    tokens = [w for w in tokens if not w in punct]
+    # Making them lowercase
+    tokens = [w.lower() for w in tokens]
+    # Separating word-digit or digit-word tokens
+    tokens = [separate_space(w) for w in tokens]
+    # Split them back and putting them together in a list again
+    tokens = [w.split() for w in tokens]
+    tokens = [w for sublist in tokens for w in sublist]
+    return tokens
+
+def PdfToText(file):
+    '''
+    Input: PDF file
+    Output: text file in string format
+    '''
+    # PDF
+    pdfFileObj = codecs.open(file, 'rb') 
+    #
+    pdfReader = PyPDF2.PdfFileReader(pdfFileObj)
+    text = ""
+    for i in range(0, pdfReader.getNumPages()):
+        tempPage = pdfReader.getPage(i)
+        text = text + str(tempPage.extractText())
+    return text
+    
+ 
+
+# Function to separate words which are pasted together with numbers
+def separate_space(string):
+    '''
+    Input: a string that potentially has a letters and numbers next to each other
+    Output: two separate strings (one with letters and another one with numbers)
+    '''
+    if re.search('^[0-9]+[a-zA-Z]+$', string):
+        return str(re.findall('[0-9]+', string)[0]) + ' ' + str(re.findall('[a-zA-Z]+', string)[0])
+    elif re.search('^[a-zA-Z]+[0-9]+$', string):
+        return str(re.findall('[a-zA-Z]+', string)[0]) + ' ' + str(re.findall('[0-9]+', string)[0])
+    else:
+        return string
+
+    
+# Share of K-grams with the following words:
+def share_kgrams(wordList, textFile, K=1):
+    '''
+    Input:
+        - wordList: list of K-grams which are length K
+        - K
+        - textFile in K-gram form
+    Output:
+        - Share of total K-grams that match the wordlist
+    '''
+    count = 0
+    for i in textFile:
+        # Checking that wordList
+        if K==1 or len(i) == K:
+            if i in wordList:
+                count += 1              # Counting
+        else:
+            print('Length of elements in textFile different to K')
+            break
+    return 100*count/len(textFile)
